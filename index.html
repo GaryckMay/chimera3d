@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+    <title>Leaflet chimera</title>
+
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <link rel="shortcut icon" type="image/x-icon" href="docs/images/favicon.ico" />
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" integrity="sha512-xodZBNTC5n17Xt2atTPuE1HxjVMSvLVW9ocqUKLsCC5CXdbqCmblAshOMAS6/keqq/sMZMZ19scR4PsZChSR7A==" crossorigin=""/>
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js" integrity="sha512-XQoYMqMTK8LvdxXYG3nZ448hOEQiglfqkJs1NOQV44cWnUrBc8PkAOcXy20w0vlaXaVUearIOBhiXZ5V3ynxwA==" crossorigin=""></script>
+    <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+
+
+<div id="mapid"></div>
+<script>
+
+
+    let LayerSatGoogle = L.tileLayer('http://{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',{
+            subdomains:['mt0','mt1','mt2','mt3']
+            attribution: 'Map data © <a href="http://openstreetmap.org">OpenStreetMap</a> contributors'
+        }),
+        LayerTopoOSM =L.tileLayer('http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+            attribution: 'Map data © <a href="http://google.com">Google</a> contributors'
+        })
+    let baseLayers = {
+        "Спутник Google":LayerSatGoogle,
+        "Топо OSM":LayerTopoOSM,
+    }
+
+    let map = L.map('mapid',{
+        maxZoom: 20,
+        minZoom: 1,
+        layers: [LayerSatGoogle],
+    }).setView([62.51231793838694,100.54687500000001], 4)
+
+    let layerControl=L.control.layers(baseLayers).addTo(map)
+
+    L.marker([51.5, -0.09]).addTo(map);
+
+    L.circle([51.508, -0.11], {
+        color: 'red',
+        fillColor: '#f03',
+        fillOpacity: 0.5,
+        radius: 500
+    }).addTo(map);
+
+    L.polygon([
+        [51.509, -0.08],
+        [51.503, -0.06],
+        [51.51, -0.047]
+    ]).addTo(map);
+
+
+</script>
+
+
+
+</body>
+</html>
