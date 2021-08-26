@@ -24,6 +24,84 @@
 <div id="mapid"></div>
 <script>
 
+    L.Canvas.include({
+        _updateImg(layer) {
+            const { img } = layer.options;
+            const p = layer._point.round();
+            p.x += img.offset.x; p.y += img.offset.y;
+            if (img.rotate) {
+                this._ctx.save();
+                this._ctx.translate(p.x, p.y);
+                this._ctx.rotate(img.rotate * Math.PI / 180);
+                //this._ctx.putImageData(img.imageData,0,0)
+                this._ctx.drawImage(img.el, -img.size[0] / 2, -img.size[1] / 2, img.size[0], img.size[1]);
+                console.log(4,img.imageData)
+                this._ctx.restore();
+            } else {
+
+                this._ctx.drawImage(img.el,p.x,p.y,img.size[0],img.size[1]);
+                console.log(this._container.style.transform)
+                let str=this._container.style.transform
+                str=str.replace(/px/gi,'')
+                var mySubString = str.substring(
+                    str.lastIndexOf("(") + 1,
+                    str.lastIndexOf(")")
+                );
+                console.log(mySubString.split(','))
+                let transform=mySubString.split(',')
+                this._ctx.putImageData(img.imageData,p.x-transform[0],p.y-transform[1],0,0,40,20)
+                console.log(2,img.imageData,p.x-transform[0],p.y-transform[1],0,0)
+            }
+        },
+    });
+
+    const angleCrds = (map, prevLatlng, latlng) => {
+        if (!latlng || !prevLatlng) return 0;
+        const pxStart = map.project(prevLatlng);
+        const pxEnd = map.project(latlng);
+        return Math.atan2(pxStart.y - pxEnd.y, pxStart.x - pxEnd.x) / Math.PI * 180 - 90;
+    };
+
+    const defaultImgOptions = {
+        rotate: 0,
+        size: [10, 10],
+        offset: { x: 0, y: 0 },
+    };
+
+    const CanvasMarker = L.CircleMarker.extend({
+        _updatePath() {
+            console.log(3,(!this.options.img || !this.options.img.imageData))
+            if (!this.options.img || !this.options.img.imageData) return;
+            if (!this.options.img.el) {
+                this.options.img = {...defaultImgOptions, ...this.options.img};
+                this.options.img.rotate += angleCrds(this._map, this.options.prevLatlng, this._latlng);
+                //this.options.img.el=true;
+                const img = document.createElement('img');
+                img.src = this.options.img.url;
+                this.options.img.el = img;
+                img.onload = () => {
+                    this.redraw();
+                };
+                img.onerror = () => {
+                    this.options.img = null;
+                };
+            } else {
+                this._renderer._updateImg(this);
+            }
+        },
+    });
+
+    L.canvasMarker = function (...opt) {
+        try {
+            const i = opt.findIndex(o => typeof o === 'object' && o.img);
+            if (i+1) {
+                if (!opt[i].radius && opt[i].img && opt[i].img.size) opt[i].radius = Math.ceil(Math.max(...opt[i].img.size)/2);
+                if (opt[i].pane) delete opt[i].pane;
+            }
+        } catch(e) {}
+        return new CanvasMarker(...opt);
+    };
+
     //console.log(GeoTIFF)
     (async function() {
 
@@ -78,7 +156,7 @@
             maxZoom: 25,
             minZoom: 1,
             layers: [LayerSatGoogle],
-        }).setView([62.51231793838694,100.54687500000001], 4)
+        }).setView([62.51231793838694,100.54687500000001], 2)
 
         let layerControl=L.control.layers(baseLayers).addTo(map)
 
@@ -115,7 +193,7 @@
             L.imageOverlay(URLi, imageBounds).addTo(map);
         }*/
 
-        let resp = await fetch('odm.tif')
+        let resp = await fetch('test.tif')
         if (resp.ok) {
             //let time = performance.now();
             let buffer = await resp.arrayBuffer()
@@ -131,9 +209,37 @@
             //console.log('Время выполнения = ', time);
             console.log(Uri)
             L.imageOverlay(Uri, imageBounds).addTo(map);
+            /* Маркер сообщения */
+
+            L.canvasMarker(L.latLng(51.52, -0.309), {
+                img: {
+                    url: 'test.png',
+                    imageData: imageData,
+                    size: [40, 40],
+                },
+            }).addTo(map);
         }
 
         L.marker([startpoint[1],startpoint[0]]).addTo(map);
+
+        /* Базовый маркер */
+        L.circleMarker(L.latLng(51.52, -0.209), {
+            radius: 10,
+            fillColor: '#27ae60',
+            fillOpacity: 1,
+            color: '#fff',
+            weight: 3,
+        }).addTo(map);
+
+        /* Маркер ошибки */
+        L.circleMarker(L.latLng(51.52, -0.109), {
+            radius: 8,
+            fillColor: '#f44334',
+            fillOpacity: 1,
+            color: '#fff',
+            weight: 3,
+        }).addTo(map);
+
 
     })()
 
