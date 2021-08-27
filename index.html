@@ -1,66 +1,65 @@
 <!DOCTYPE html>
 <html>
 <head>
-
-    <title>Leaflet chimera</title>
-
+    <title>через ImageOverlay</title>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
     <link rel="shortcut icon" type="image/x-icon" href="docs/images/favicon.ico" />
-
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" integrity="sha512-xodZBNTC5n17Xt2atTPuE1HxjVMSvLVW9ocqUKLsCC5CXdbqCmblAshOMAS6/keqq/sMZMZ19scR4PsZChSR7A==" crossorigin=""/>
     <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js" integrity="sha512-XQoYMqMTK8LvdxXYG3nZ448hOEQiglfqkJs1NOQV44cWnUrBc8PkAOcXy20w0vlaXaVUearIOBhiXZ5V3ynxwA==" crossorigin=""></script>
     <script src="https://cdn.jsdelivr.net/npm/geotiff"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.7.5/proj4.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/gpu.js@latest/dist/gpu-browser.min.js"></script>
     <script src="tiff.min.js"></script>
     <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
 
-
-
 <div id="mapid"></div>
 <script>
-
-    //console.log(GeoTIFF)
-    (async function() {
-
-        const tiff = await GeoTIFF.fromUrl('./odm.tif')
+    /**
+     * Получение координат bbox
+     * @param arrayBuffer <Uint8ClampedArray> - изображение
+     * @return {Promise<Array>} - массив координат ограничивающего квадрата
+     */
+    async function getImageBounds(arrayBuffer) {
+        const tiff = await GeoTIFF.fromArrayBuffer(arrayBuffer)
         const image = await tiff.getImage()
         console.log(image)
-        //const n = image.getWidth()
-        const origin = image.getOrigin();
-        console.log(origin)
         const bbox =  image.getBoundingBox();
-        const targetBbox = [bbox[0], bbox[1] - origin[1] * 2, bbox[2], bbox[3] - origin[1] * 2];
-
-
-
-        //const data = await image.readRasters()[0];
-        /*const response = await fetch('./overlay/odm_orthophoto.tif');
-        const arrayBuffer = await response.arrayBuffer();
-        const tiff = await fromArrayBuffer(arrayBuffer);*/
-        console.log(image)
-        console.log(bbox)
-        //console.log(n)
-        console.log(origin)
-        console.log(targetBbox)
         proj4.defs([
             [
-                'EPSG:32646',
-                "+proj=utm +zone=46 +datum=WGS84 +units=m +no_defs"
+                'EPSG:32646',"+proj=utm +zone=46 +datum=WGS84 +units=m +no_defs"
+            ],
+            [
+                'NAD27',"+proj=tmerc +lat_0=36.66666666666666 +lon_0=-88.33333333333333 +k=0.9999749999999999 +x_0=152400.3048006096 +y_0=0 +datum=NAD27 +units=us-ft +no_defs"
             ],
         ]);
-        let startpoint=proj4('EPSG:32646').inverse([bbox[0], bbox[1]])
-        let endpoint=proj4('EPSG:32646').inverse([bbox[2], bbox[3]])
-        console.log(proj4('EPSG:32646').inverse([461933.27000005, 6201637.406206868]))
-        console.log(startpoint)
+        const startpoint=proj4('NAD27').inverse([bbox[0], bbox[1]])
+        const endpoint=proj4('NAD27').inverse([bbox[2], bbox[3]])
+        return [[startpoint[1],startpoint[0]], [endpoint[1], endpoint[0]]]
+    }
 
-        /*var firstProjection = 'PROJCS["WGS 84 / UTM zone 46N",GEOGCS["WGS 84",DATUM["WGS_1984",SPHEROID["WGS 84",6378137,298.257223563,AUTHORITY["EPSG","7030"]],AUTHORITY["EPSG","6326"]],PRIMEM["Greenwich",0,AUTHORITY["EPSG","8901"]],UNIT["degree",0.0174532925199433,AUTHORITY["EPSG","9122"]],AUTHORITY["EPSG","4326"]],PROJECTION["Transverse_Mercator"],PARAMETER["latitude_of_origin",0],PARAMETER["central_meridian",93],PARAMETER["scale_factor",0.9996],PARAMETER["false_easting",500000],PARAMETER["false_northing",0],UNIT["metre",1,AUTHORITY["EPSG","9001"]],AXIS["Easting",EAST],AXIS["Northing",NORTH],AUTHORITY["EPSG","32646"]]';
-        var secondProjection = 'PROJCS["WGS 84 / Pseudo-Mercator",GEOGCS["WGS 84",DATUM["WGS_1984",SPHEROID["WGS 84",6378137,298.257223563,AUTHORITY["EPSG","7030"]],AUTHORITY["EPSG","6326"]],PRIMEM["Greenwich",0,AUTHORITY["EPSG","8901"]],UNIT["degree",0.0174532925199433,AUTHORITY["EPSG","9122"]],AUTHORITY["EPSG","4326"]],PROJECTION["Mercator_1SP"],PARAMETER["central_meridian",0],PARAMETER["scale_factor",1],PARAMETER["false_easting",0],PARAMETER["false_northing",0],UNIT["metre",1,AUTHORITY["EPSG","9001"]],AXIS["X",EAST],AXIS["Y",NORTH],EXTENSION["PROJ4","+proj=merc +a=6378137 +b=6378137 +lat_ts=0.0 +lon_0=0.0 +x_0=0.0 +y_0=0 +k=1.0 +units=m +nadgrids=@null +wktext  +no_defs"],AUTHORITY["EPSG","3857"]]';
-        console.log(proj4(firstProjection,secondProjection,[461933.27000005,6200703.719307953]));*/
+    /**
+     * Получение png изображения из бинарного массива
+     * @param imagedata <arrayBuffer>
+     * @return {Promise<unknown>}
+     */
+    function imgDataToPNG(imagedata) {
+        let canvas = document.createElement('canvas')
+        let ctx = canvas.getContext('2d')
+        canvas.width = imagedata.width
+        canvas.height = imagedata.height
+        ctx.putImageData(imagedata, 0, 0)
+        return new Promise((resolve, reject) => {
+            canvas.toBlob(resolve); // перевод в image/png формат
+        })
+    }
+
+    /**
+     * Загрузка карты
+     */
+    (async function() {
+
         let LayerSatGoogle = L.tileLayer('http://{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',{
                 subdomains:['mt0','mt1','mt2','mt3'],
                 attribution: 'Map data © <a href="http://openstreetmap.org">OpenStreetMap</a> contributors'
@@ -82,79 +81,30 @@
 
         let layerControl=L.control.layers(baseLayers).addTo(map)
 
-        var imageUrl = './test.png',
-            imageBounds = [[startpoint[1],startpoint[0]], [endpoint[1], endpoint[0]]]
-        //L.imageOverlay(imageUrl, imageBounds).addTo(map);
 
-        map.on("click", (mapsMouseEvent) => {
-            // Close the current InfoWindow.
-            console.log(mapsMouseEvent.latlng)
-        });
-
-        function imgDataToImage(imagedata) {
-            let canvas = document.createElement('canvas');
-            var ctx = canvas.getContext('2d');
-            canvas.width = imagedata.width;
-            canvas.height = imagedata.height;
-            ctx.putImageData(imagedata, 0, 0);
-
-            return new Promise((resolve, reject) => {
-                canvas.toBlob(resolve); // implied image/png format
-            });
-        }
-
-        /*let worker = new Worker('worker2.js')
-        worker.postMessage({url: 'odm.tif'})
-        worker.onmessage=async function(e) {
-            let imageData=e.data.image
-            console.log(10)
-            let id=await imgDataToImage(imageData)
-            console.log(11)
-            let URLi=URL.createObjectURL(id)
-            console.log(URLi)
-            L.imageOverlay(URLi, imageBounds).addTo(map);
-        }*/
-
-        let resp = await fetch('odm.tif')
+        //Загрузка изображения
+        let resp = await fetch('geotiff.tif')
         if (resp.ok) {
-            //let time = performance.now();
-            let buffer = await resp.arrayBuffer()
-            let memory=buffer.byteLength
+            let time = performance.now();
+            const buffer = await resp.arrayBuffer()
+            const imageBounds=await getImageBounds(buffer)
+            const memory=buffer.byteLength
             Tiff.initialize({ TOTAL_MEMORY: memory })
-            let tiff2 = new Tiff({buffer: buffer})
-            let img = tiff2.readRGBAImage()
-            let arr = new Uint8ClampedArray(img)
-            let imageData=new ImageData(arr, tiff2.width(), tiff2.height())
-            let blob=await imgDataToImage(imageData)
+            let tiff = new Tiff({buffer: buffer})
+            let arr = new Uint8ClampedArray(tiff.readRGBAImage())
+            let imageData=new ImageData(arr, tiff.width(), tiff.height())
+            let blob=await imgDataToPNG(imageData)
             let Uri = URL.createObjectURL(blob)
-            //time = performance.now() - time;
-            //console.log('Время выполнения = ', time);
-            console.log(Uri)
-            L.imageOverlay(Uri, imageBounds).addTo(map);
-        }
+            L.imageOverlay(Uri, imageBounds).addTo(map)
 
-        L.marker([startpoint[1],startpoint[0]]).addTo(map);
+            L.marker(imageBounds[0]).addTo(map)
+            map.flyTo(imageBounds[0],15)
+
+            time = performance.now() - time;
+            console.log('Время выполнения = ', time)
+        }
 
     })()
-
-
-/*    L.circle([51.508, -0.11], {
-        color: 'red',
-        fillColor: '#f03',
-        fillOpacity: 0.5,
-        radius: 500
-    }).addTo(map);
-
-    L.polygon([
-        [51.509, -0.08],
-        [51.503, -0.06],
-        [51.51, -0.047]
-    ]).addTo(map);*/
-
-
 </script>
-
-
-
 </body>
 </html>
